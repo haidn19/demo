@@ -3,9 +3,11 @@ package com.example.demo.service;
 import com.example.demo.dto.response.PayrollResponse;
 import com.example.demo.entity.Attendance;
 import com.example.demo.entity.Employee;
+import com.example.demo.entity.Leave;
 import com.example.demo.entity.Payroll;
 import com.example.demo.repository.AttendanceRepository;
 import com.example.demo.repository.EmployeeRepository;
+import com.example.demo.repository.LeaveRepository;
 import com.example.demo.repository.PayrollRepository;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
@@ -25,13 +27,16 @@ public class PayrollService {
     private final EmployeeRepository employeeRepository;
     private final AttendanceRepository attendanceRepository;
     private final PayrollRepository payrollRepository;
+    private final LeaveRepository leaveRepository;
     private final Set<LocalDate> holidays;
 
     public PayrollService(EmployeeRepository employeeRepository, AttendanceRepository attendanceRepository,
-            PayrollRepository payrollRepository, @Value("${app.holidays:}") String holidayDates) {
+            PayrollRepository payrollRepository, LeaveRepository leaveRepository,
+            @Value("${app.holidays:}") String holidayDates) {
         this.employeeRepository = employeeRepository;
         this.attendanceRepository = attendanceRepository;
         this.payrollRepository = payrollRepository;
+        this.leaveRepository = leaveRepository;
         this.holidays = HolidayDates.parse(holidayDates);
     }
 
@@ -45,16 +50,25 @@ public class PayrollService {
         }
         LocalDate fromDate = toDate.withDayOfMonth(1);
         List<Attendance> days = attendanceRepository.findByEmployeeIdAndWorkDateBetween(employeeId, fromDate, toDate)
-                .stream().filter(day -> day.getCheckIn() != null)
+                .stream().filter(day -> !"LEAVE".equals(day.getStatus()))
+                .filter(day -> day.getCheckIn() != null)
                 .map(day -> AttendanceService.calculate(day, holidays, shouldClose(day.getWorkDate())))
                 .filter(day -> day.getEffectiveOut() != null).toList();
         attendanceRepository.saveAll(days);
+
+        long paidLeaveDays = leaveRepository
+                .findByEmployeeIdAndStatusAndStartDateLessThanEqualAndEndDateGreaterThanEqual(
+                        employeeId, "APPROVED", toDate, fromDate)
+                .stream()
+                .mapToLong(leave -> paidLeaveDaysWithin(leave, fromDate, toDate))
+                .sum();
 
         // Chỉ mất công sáng khi IN >= 09:30. Các phút thiếu trong buổi có công được xử lý
         // bằng Bù tháng, nên không trừ chúng thêm lần nữa khỏi lương cơ bản.
         long payableMinutes = days.stream().mapToLong(day ->
                 (day.getMorningMinutes() > 0 ? 210 : 0) +
-                (day.getAfternoonMinutes() > 0 ? 210 : 0)).sum();
+                (day.getAfternoonMinutes() > 0 ? 210 : 0)).sum()
+                + paidLeaveDays * STANDARD_WORK_MINUTES;
         long overtimeMinutes = days.stream().mapToLong(Attendance::getOvertimeMinutes).sum();
         int monthlyBalance = days.stream().mapToInt(Attendance::getBalanceMinutes).sum();
         boolean deductionRequired = monthlyBalance > 60;
@@ -82,14 +96,22 @@ public class PayrollService {
         payroll.setOvertimeMinutes(overtimeMinutes);
         payroll.setMonthlyBalanceMinutes(monthlyBalance);
         payroll.setDeductionRequired(deductionRequired);
-        payroll.setLeaveDaysUsed(BigDecimal.ZERO);
+        BigDecimal leaveDaysUsed = BigDecimal.valueOf(paidLeaveDays);
+        payroll.setLeaveDaysUsed(leaveDaysUsed);
         payroll.setGrossSalary(salary);
         payroll.setNetSalary(totalSalary);
         payrollRepository.save(payroll);
 
         return new PayrollResponse(employeeId, fromDate, toDate, employee.getBaseSalary(),
                 (double) payableMinutes / STANDARD_WORK_MINUTES, salary, overtimePay, totalSalary,
-                BigDecimal.ZERO, monthlyBalance, deductionRequired);
+                leaveDaysUsed, monthlyBalance, deductionRequired);
+    }
+
+    private long paidLeaveDaysWithin(Leave leave, LocalDate fromDate, LocalDate toDate) {
+        return leave.getStartDate().datesUntil(leave.getEndDate().plusDays(1))
+                .filter(date -> AttendanceService.isNormalDay(date, holidays))
+                .filter(date -> !date.isBefore(fromDate) && !date.isAfter(toDate))
+                .count();
     }
 
     private boolean shouldClose(LocalDate date) {

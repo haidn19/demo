@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
-import AuthGuard from "@/components/AuthGuard";
+import AppShell from "@/components/AppShell";
 import EmployeeForm from "@/components/EmployeeForm";
 import { createEmployee } from "@/services/employeeService";
 import type { EmployeeRequest } from "@/types/employee";
@@ -28,14 +28,16 @@ export default function CreateEmployeePage() {
   }
 
   return (
-    <AuthGuard>
-      <main className="container narrow">
-        <Link href="/employees">← Back</Link>
-        <h1>Add Employee</h1>
+    <AppShell
+      title="Thêm nhân viên"
+      description="Tạo hồ sơ nhân sự mới và phân công vào phòng ban."
+      action={<Link className="button" href="/employees" title="Quay lại danh sách nhân viên">← Quay lại</Link>}
+    >
+      <div className="contentNarrow">
         {allowed && (
-          <EmployeeForm submitLabel="Create" onSubmit={handleCreate} />
+          <EmployeeForm submitLabel="Tạo nhân viên" onSubmit={handleCreate} />
         )}
-      </main>
-    </AuthGuard>
+      </div>
+    </AppShell>
   );
 }

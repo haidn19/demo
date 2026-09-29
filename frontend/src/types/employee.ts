@@ -7,6 +7,8 @@ export interface Employee {
   email: string | null;
   taxCode: string | null;
   department: Department | null;
+  baseSalary: number | null;
+  remainingLeaveDays: number | null;
 }
 
 export interface Department {
@@ -34,4 +36,6 @@ export interface EmployeeRequest {
   email: string;
   taxCode: string;
   departmentId: number | null;
+  baseSalary: number;
+  LeaveDays: number;
 }

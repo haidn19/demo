@@ -70,7 +70,7 @@ public class EmployeeService {
             if (request.taxCode() != null) existingEmployee.setTaxCode(request.taxCode());
             if (request.departmentId() != null) existingEmployee.setDepartment(getDepartment(request.departmentId()));
             if (request.baseSalary() != null) existingEmployee.setBaseSalary(request.baseSalary());
-            if (request.remainingLeaveDays() != null) existingEmployee.setRemainingLeaveDays(request.remainingLeaveDays());
+            if (request.LeaveDays() != null) existingEmployee.setLeaveDays(request.LeaveDays());
         }
         return CompletableFuture.completedFuture(employeeRepository.save(existingEmployee));
     }
@@ -99,8 +99,8 @@ public class EmployeeService {
         employee.setEmail(request.email());
         employee.setTaxCode(request.taxCode());
         employee.setBaseSalary(request.baseSalary());
-        employee.setRemainingLeaveDays(request.remainingLeaveDays() == null
-            ? java.math.BigDecimal.ZERO : request.remainingLeaveDays());
+        employee.setLeaveDays(request.LeaveDays() == null
+            ? 0 : request.LeaveDays());
         employee.setDepartment(getDepartment(request.departmentId()));
     }
 
@@ -109,4 +109,3 @@ public class EmployeeService {
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "Department not found"));
     }
 }
-

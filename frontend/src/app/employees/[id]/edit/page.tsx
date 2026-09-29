@@ -4,8 +4,9 @@ import Link from "next/link";
 import { use, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
-import AuthGuard from "@/components/AuthGuard";
+import AppShell from "@/components/AppShell";
 import EmployeeForm from "@/components/EmployeeForm";
+import PageState from "@/components/ui/PageState";
 import { getEmployee, updateEmployee } from "@/services/employeeService";
 import type { Employee, EmployeeRequest } from "@/types/employee";
 
@@ -31,7 +32,7 @@ export default function EditEmployeePage({
 
     getEmployee(employeeId)
       .then(setEmployee)
-      .catch(() => setError("Cannot load employee."));
+      .catch(() => setError("Không thể tải hồ sơ nhân viên."));
   }, [employeeId, router, session, status]);
 
   async function handleUpdate(employeeData: EmployeeRequest) {
@@ -40,11 +41,13 @@ export default function EditEmployeePage({
   }
 
   return (
-    <AuthGuard>
-      <main className="container narrow">
-        <Link href="/employees">← Back</Link>
-        <h1>Edit Employee</h1>
-        {error && <p className="error">{error}</p>}
+    <AppShell
+      title="Cập nhật nhân viên"
+      description="Chỉnh sửa thông tin hồ sơ và chính sách nhân sự."
+      action={<Link className="button" href="/employees" title="Quay lại danh sách nhân viên">← Quay lại</Link>}
+    >
+      <div className="contentNarrow">
+        {error && <PageState type="error" title="Không thể tải hồ sơ" description={error} />}
         {employee && (
           <EmployeeForm
             initialValues={{
@@ -55,12 +58,14 @@ export default function EditEmployeePage({
               email: employee.email ?? "",
               taxCode: employee.taxCode ?? "",
               departmentId: employee.department?.id ?? null,
+              baseSalary: employee.baseSalary ?? 0,
+              LeaveDays: employee.remainingLeaveDays ?? 0,
             }}
-            submitLabel="Update"
+            submitLabel="Lưu thay đổi"
             onSubmit={handleUpdate}
           />
         )}
-      </main>
-    </AuthGuard>
+      </div>
+    </AppShell>
   );
 }

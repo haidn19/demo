@@ -2,12 +2,13 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import AuthGuard from "@/components/AuthGuard";
+import AppShell from "@/components/AppShell";
 import EmployeeTable from "@/components/EmployeeTable";
+import PageState from "@/components/ui/PageState";
 import RoleGuard from "@/components/RoleGuard";
 import { getEmployees } from "@/services/employeeService";
 import type { Employee } from "@/types/employee";
-import { signOut, useSession } from "next-auth/react";
+import { useSession } from "next-auth/react";
 
 export default function EmployeesPage() {
   const [employees, setEmployees] = useState<Employee[]>([]);
@@ -22,7 +23,7 @@ export default function EmployeesPage() {
       setEmployees(data);
     } catch {
       setError(
-        "Cannot load employees. Check backend URL, CORS and token permissions.",
+        "Không thể tải danh sách nhân viên. Vui lòng kiểm tra kết nối API và quyền truy cập.",
       );
     } finally {
       setLoading(false);
@@ -34,42 +35,32 @@ export default function EmployeesPage() {
     return () => window.clearTimeout(timer);
   }, []);
 
-  function handleLogout() {
-    void signOut({ callbackUrl: "/login" });
-  }
-
   return (
-    <AuthGuard>
-      <main className="container">
-        <div className="topbar">
-          <div>
-            <h1>Employee Management</h1>
-            <p className="muted">
-              Role: {session?.roles?.join(", ") || "unknown"}
-            </p>
-          </div>
-
-          <div className="actions">
-            <Link className="button" href="/departments">
-              Phòng ban
-            </Link>
-            <RoleGuard role="ADMIN">
-              <Link className="button primary" href="/employees/create">
-                + Add Employee
-              </Link>
-            </RoleGuard>
-            <button className="button" type="button" onClick={handleLogout}>
-              Logout
-            </button>
-          </div>
+    <AppShell
+      title="Nhân viên"
+      description="Quản lý hồ sơ, thông tin liên hệ và chính sách của nhân viên."
+      action={
+        <RoleGuard role="ADMIN">
+          <Link className="button primary" href="/employees/create" title="Tạo hồ sơ nhân viên mới">
+            + Thêm nhân viên
+          </Link>
+        </RoleGuard>
+      }
+    >
+        <div className="sectionToolbar">
+          <p className="muted">
+            {loading ? "Đang cập nhật danh sách..." : `${employees.length} hồ sơ nhân viên`}
+          </p>
+          <span className="roleNote">
+            Quyền: {session?.roles?.includes("ADMIN") ? "Quản trị" : "Nhân viên"}
+          </span>
         </div>
 
-        {loading && <div className="card">Loading...</div>}
-        {error && <div className="card error">{error}</div>}
+        {loading && <PageState type="loading" title="Đang tải nhân viên" />}
+        {error && <PageState type="error" title="Không thể tải dữ liệu" description={error} />}
         {!loading && !error && (
           <EmployeeTable employees={employees} reload={loadEmployees} />
         )}
-      </main>
-    </AuthGuard>
+    </AppShell>
   );
 }

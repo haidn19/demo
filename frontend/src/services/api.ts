@@ -3,7 +3,8 @@ import { getSession, signOut } from "next-auth/react";
 
 // Tạo một Axios instance dùng chung để mọi request có cùng URL gốc và header.
 const api = axios.create({
-  baseURL: process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8080/api",
+  // Đi qua Next.js để frontend không phụ thuộc cấu hình CORS của backend.
+  baseURL: "/backend-api",
   headers: {
     "Content-Type": "application/json",
   },

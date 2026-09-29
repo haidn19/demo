@@ -5,6 +5,8 @@ import type { Employee } from "@/types/employee";
 import RoleGuard from "./RoleGuard";
 import { deleteEmployee } from "@/services/employeeService";
 import { useSession } from "next-auth/react";
+import { useState } from "react";
+import { formatCurrency, formatDate } from "@/utils/format";
 
 interface Props {
   employees: Employee[];
@@ -14,19 +16,23 @@ interface Props {
 export default function EmployeeTable({ employees, reload }: Props) {
   const { data: session } = useSession();
   const isAdmin = session?.roles.includes("ADMIN") ?? false;
+  const [deletingId, setDeletingId] = useState<number | null>(null);
   async function handleDelete(employee: Employee) {
-    if (!window.confirm(`Delete ${employee.name}?`)) return;
+    if (!window.confirm(`Xóa hồ sơ của ${employee.name}?`)) return;
 
     try {
+      setDeletingId(employee.id);
       await deleteEmployee(employee.id);
       await reload();
     } catch {
-      alert("Delete failed. Check ADMIN permission on backend.");
+      alert("Không thể xóa nhân viên. Vui lòng thử lại.");
+    } finally {
+      setDeletingId(null);
     }
   }
 
   if (employees.length === 0) {
-    return <div className="card">No employees found.</div>;
+    return <div className="card">Chưa có nhân viên nào.</div>;
   }
 
   return (
@@ -34,41 +40,53 @@ export default function EmployeeTable({ employees, reload }: Props) {
       <table>
         <thead>
           <tr>
-            <th>Name</th>
-            {isAdmin && <th>Date of birth</th>}
-            {isAdmin && <th>Phone</th>}
-            {isAdmin && <th>Address</th>}
-            {isAdmin && <th>Email</th>}
-            {isAdmin && <th>Tax code</th>}
-            {isAdmin && <th>Department</th>}
-            {isAdmin && <th>Actions</th>}
+            <th>Nhân viên</th>
+            {isAdmin && <th>Liên hệ</th>}
+            {isAdmin && <th>Phòng ban</th>}
+            {isAdmin && <th>Lương cơ bản</th>}
+            {isAdmin && <th>Phép còn lại</th>}
+            {isAdmin && <th>Thao tác</th>}
           </tr>
         </thead>
         <tbody>
           {employees.map((employee) => (
             <tr key={employee.id}>
-              <td>{employee.name}</td>
-              {isAdmin && <td>{employee.dateOfBirth ?? "-"}</td>}
-              {isAdmin && <td>{employee.phoneNumber ?? "-"}</td>}
-              {isAdmin && <td>{employee.address ?? "-"}</td>}
-              {isAdmin && <td>{employee.email ?? "-"}</td>}
-              {isAdmin && <td>{employee.taxCode ?? "-"}</td>}
-              {isAdmin && <td>{employee.department?.name ?? "-"}</td>}
+              <td>
+                <strong>{employee.name}</strong>
+                {isAdmin && (
+                  <span className="tableMeta">
+                    Sinh ngày {formatDate(employee.dateOfBirth)} · MST {employee.taxCode ?? "—"}
+                  </span>
+                )}
+              </td>
+              {isAdmin && (
+                <td>
+                  {employee.phoneNumber ?? "—"}
+                  <span className="tableMeta">{employee.email ?? "Chưa có email"}</span>
+                </td>
+              )}
+              {isAdmin && <td>{employee.department?.name ?? "—"}</td>}
+              {isAdmin && <td>{formatCurrency(employee.baseSalary)}</td>}
+              {isAdmin && <td>{employee.remainingLeaveDays ?? 0} ngày</td>}
               {isAdmin && (
                 <td className="actions">
                   <RoleGuard role="ADMIN">
                     <Link
                       className="button"
                       href={`/employees/${employee.id}/edit`}
+                      title={`Chỉnh sửa hồ sơ của ${employee.name}`}
                     >
-                      Edit
+                      Sửa
                     </Link>
                     <button
                       className="button danger"
                       type="button"
+                      aria-label={`Xóa nhân viên ${employee.name}`}
+                      title={`Xóa nhân viên ${employee.name}`}
+                      disabled={deletingId === employee.id}
                       onClick={() => handleDelete(employee)}
                     >
-                      Delete
+                      {deletingId === employee.id ? "Đang xóa..." : "Xóa"}
                     </button>
                   </RoleGuard>
                 </td>

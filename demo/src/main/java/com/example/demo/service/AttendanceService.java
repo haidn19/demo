@@ -13,6 +13,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 @Service
 public class AttendanceService {
+    private static final String STATUS_LEAVE = "LEAVE";
     // Khung giờ SRS V1: 08:30-12:00, 14:00-17:30; 17:30-18:00 là Bù, sau 18:00 là OT.
     // Đổi giờ làm việc thì kiểm tra lại các test trong AttendanceServiceTest.
     private static final LocalTime EARLY_START = LocalTime.of(7, 0);
@@ -53,6 +54,7 @@ public class AttendanceService {
     public static Attendance calculate(Attendance day, Set<LocalDate> holidays, boolean closeMissingCheckout) {
         // Kết quả ngày được tính lại từ IN/OUT; không dùng OT để trừ Bù.
         // closeMissingCheckout chỉ áp dụng cho ngày thường đã qua 17:30, OUT gốc vẫn giữ null.
+        if (STATUS_LEAVE.equals(day.getStatus())) return day;
         if (day.getCheckIn() == null) return day;
         LocalTime in = day.getCheckIn().toLocalTime();
         LocalDate date = day.getWorkDate();
@@ -122,6 +124,11 @@ public class AttendanceService {
         // Lưu mọi lần chấm công vào attendance_punch; IN = sớm nhất, OUT = muộn nhất trong ngày.
         // Các mốc ở giữa không tạo ca làm việc riêng theo SRS V1.
         LocalDate date = timestamp.toLocalDate();
+        attendanceRepository.findByEmployeeIdAndWorkDate(employeeId, date)
+                .filter(attendance -> STATUS_LEAVE.equals(attendance.getStatus()))
+                .ifPresent(attendance -> {
+                    throw new IllegalStateException("Employee is on approved leave");
+                });
         List<AttendancePunch> prior = punchRepository
                 .findByEmployeeIdAndPunchedAtGreaterThanEqualAndPunchedAtLessThan(
                         employeeId, date.atStartOfDay(), date.plusDays(1).atStartOfDay());

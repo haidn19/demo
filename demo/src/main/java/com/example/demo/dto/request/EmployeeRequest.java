@@ -12,5 +12,6 @@ public record EmployeeRequest(
         String taxCode,
         Long departmentId,
         BigDecimal baseSalary,
-        BigDecimal remainingLeaveDays) {
+        Integer LeaveDays) {
+
 }

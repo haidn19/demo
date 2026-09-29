@@ -1,5 +1,6 @@
 package com.example.demo.controller;
 
+import java.math.BigDecimal;
 import java.util.List;
 
 import org.springframework.web.bind.annotation.GetMapping;
@@ -82,6 +83,6 @@ public class EmployeeController {
             : new DepartmentResponse(employee.getDepartment().getId(), employee.getDepartment().getName(), 0, null);
         return new EmployeeResponse(employee.getId(), employee.getEmployeeName(), employee.getDateOfBirth(),
                 employee.getPhoneNumber(), employee.getAddress(), employee.getEmail(), employee.getTaxCode(),
-                department, employee.getBaseSalary(), employee.getRemainingLeaveDays());
+                department, employee.getBaseSalary(), BigDecimal.valueOf(employee.getLeaveDays()));
     }
 }

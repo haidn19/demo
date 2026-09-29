@@ -124,8 +124,8 @@ public class Employee {
     private BigDecimal baseSalary;
 
     // số ngày phép còn lại
-    @Column(name = "remaining_leave_days", precision = 8, scale = 2)
-    private BigDecimal remainingLeaveDays;
+    @Column(name = "leave_days", precision = 8, scale = 2)
+    private Integer LeaveDays;
 
 
     public BigDecimal getBaseSalary() {
@@ -136,11 +136,11 @@ public class Employee {
         this.baseSalary = baseSalary;
     }
 
-    public BigDecimal getRemainingLeaveDays() {
-        return remainingLeaveDays;
+    public int getLeaveDays() {
+        return LeaveDays == null ? 0 : LeaveDays;
     }
 
-    public void setRemainingLeaveDays(BigDecimal remainingLeaveDays) {
-        this.remainingLeaveDays = remainingLeaveDays;
+    public void setLeaveDays(int LeaveDays) {
+        this.LeaveDays = LeaveDays;
     }
 }

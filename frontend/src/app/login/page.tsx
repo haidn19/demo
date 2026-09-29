@@ -29,9 +29,9 @@ export default function LoginPage() {
       if (!result?.ok) throw new Error("Invalid credentials");
 
       // Chỉ chuyển đến danh sách nhân viên sau khi đăng nhập thành công.
-      await router.replace("/employees");
+      await router.replace("/");
     } catch {
-      setError("Login failed. Check username/password.");
+      setError("Đăng nhập thất bại. Vui lòng kiểm tra tài khoản và mật khẩu.");
     } finally {
       setLoading(false);
     }
@@ -39,31 +39,34 @@ export default function LoginPage() {
 
   return (
     <main className="loginPage">
-      <form className="card loginCard" onSubmit={handleSubmit}>
-        <h1>Login</h1>
-        <p className="muted">Login with your Spring Boot account.</p>
+      <form className="loginCard" onSubmit={handleSubmit}>
+        <h1>Đăng nhập</h1>
 
-        <label htmlFor="username">Username</label>
+        <label htmlFor="username">Tên đăng nhập</label>
         <input
           id="username"
           value={username}
           onChange={(event) => setUsername(event.target.value)}
           autoComplete="username"
+          placeholder="Nhập tên đăng nhập"
+          required
         />
 
-        <label htmlFor="password">Password</label>
+        <label htmlFor="password">Mật khẩu</label>
         <input
           id="password"
           type="password"
           value={password}
           onChange={(event) => setPassword(event.target.value)}
           autoComplete="current-password"
+          placeholder="Nhập mật khẩu"
+          required
         />
 
         {error && <p className="error">{error}</p>}
 
-        <button className="button primary" type="submit" disabled={loading}>
-          {loading ? "Logging in..." : "Login"}
+        <button className="button primary" type="submit" title="Đăng nhập vào hệ thống quản lý nhân sự" disabled={loading}>
+          {loading ? "Đang đăng nhập..." : "Đăng nhập"}
         </button>
       </form>
     </main>

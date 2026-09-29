@@ -56,4 +56,16 @@ class AttendanceServiceTest {
         assertEquals(2.0, weekend.getOvertimeMultiplier());
         assertEquals(3.0, day(saturday, "08:30", "17:30", Set.of(saturday)).getOvertimeMultiplier());
     }
+
+    @Test void approvedLeaveStatusIsPreserved() {
+        Attendance leave = new Attendance();
+        leave.setWorkDate(LocalDate.of(2026, 9, 14));
+        leave.setStatus("LEAVE");
+
+        Attendance result = AttendanceService.calculate(leave, Set.of(), true);
+
+        assertEquals("LEAVE", result.getStatus());
+        assertNull(result.getCheckIn());
+        assertNull(result.getCheckOut());
+    }
 }

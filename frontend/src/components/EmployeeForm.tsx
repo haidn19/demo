@@ -32,6 +32,8 @@ export default function EmployeeForm({
       email: initialValues.email ?? "",
       taxCode: initialValues.taxCode ?? "",
       departmentId: initialValues.departmentId ?? null,
+      baseSalary: initialValues.baseSalary ?? 0,
+      LeaveDays: initialValues.LeaveDays ?? 0,
     },
   });
 
@@ -53,121 +55,139 @@ export default function EmployeeForm({
         taxCode: form.taxCode.replace(/\s/g, ""),
       });
     } catch {
-      setError("Request failed. Check backend/API permissions.");
+      setError("Không thể lưu hồ sơ. Vui lòng kiểm tra dữ liệu và thử lại.");
     }
   }
 
   return (
     <form className="card form" onSubmit={handleSubmit(submitEmployee)}>
-      <label htmlFor="name">Employee name</label>
+      <div className="formHeading">
+        <p className="eyebrow">Thông tin hồ sơ</p>
+        <p className="muted">Các trường có dấu * là bắt buộc.</p>
+      </div>
+
+      <div className="field fullField">
+      <label htmlFor="name">Họ và tên *</label>
       <input
         id="name"
         aria-invalid={Boolean(errors.name)}
         {...register("name", {
-          required: "Employee name is required",
+          required: "Họ tên là bắt buộc",
           setValueAs: (value: string) => value.trim(),
           minLength: {
             value: 2,
-            message: "Name must be between 2 and 100 characters",
+            message: "Họ tên phải có từ 2 đến 100 ký tự",
           },
           maxLength: {
             value: 100,
-            message: "Name must be between 2 and 100 characters",
+            message: "Họ tên phải có từ 2 đến 100 ký tự",
           },
         })}
-        placeholder="Nguyen Van A"
+        placeholder="Nguyễn Văn A"
       />
       {errors.name && <p className="fieldError">{errors.name.message}</p>}
+      </div>
 
-      <label htmlFor="dateOfBirth">Date of birth</label>
+      <div className="field">
+      <label htmlFor="dateOfBirth">Ngày sinh *</label>
       <input
         id="dateOfBirth"
         type="date"
         max={new Date().toISOString().slice(0, 10)}
         aria-invalid={Boolean(errors.dateOfBirth)}
         {...register("dateOfBirth", {
-          required: "Date of birth is required",
+          required: "Ngày sinh là bắt buộc",
           validate: (value) =>
-            value <= today || "Date of birth cannot be in the future",
+            value <= today || "Ngày sinh không được ở tương lai",
         })}
       />
       {errors.dateOfBirth && (
         <p className="fieldError">{errors.dateOfBirth.message}</p>
       )}
+      </div>
 
-      <label htmlFor="phoneNumber">Phone number</label>
+      <div className="field">
+      <label htmlFor="phoneNumber">Số điện thoại *</label>
       <input
         id="phoneNumber"
         inputMode="tel"
         aria-invalid={Boolean(errors.phoneNumber)}
         {...register("phoneNumber", {
-          required: "Phone number is required",
+          required: "Số điện thoại là bắt buộc",
           validate: (value) =>
             /^(0|\+84)(3|5|7|8|9)\d{8}$/.test(value.replace(/[\s.-]/g, "")) ||
-            "Enter a valid Vietnamese phone number",
+            "Số điện thoại Việt Nam không hợp lệ",
         })}
       />
       {errors.phoneNumber && (
         <p className="fieldError">{errors.phoneNumber.message}</p>
       )}
+      </div>
 
-      <label htmlFor="address">Address</label>
+      <div className="field fullField">
+      <label htmlFor="address">Địa chỉ *</label>
       <input
         id="address"
         aria-invalid={Boolean(errors.address)}
         {...register("address", {
-          required: "Address is required",
+          required: "Địa chỉ là bắt buộc",
           setValueAs: (value: string) => value.trim(),
           maxLength: {
             value: 255,
-            message: "Address must not exceed 255 characters",
+            message: "Địa chỉ không được vượt quá 255 ký tự",
           },
         })}
       />
       {errors.address && <p className="fieldError">{errors.address.message}</p>}
+      </div>
 
-      <label htmlFor="email">Email</label>
+      <div className="field">
+      <label htmlFor="email">Email *</label>
       <input
         id="email"
         type="email"
         aria-invalid={Boolean(errors.email)}
         {...register("email", {
-          required: "Email is required",
+          required: "Email là bắt buộc",
           setValueAs: (value: string) => value.trim(),
           pattern: {
             value: /^[^\s@]+@[^\s@]+\.[^\s@]+$/,
-            message: "Enter a valid email address",
+            message: "Địa chỉ email không hợp lệ",
           },
         })}
       />
       {errors.email && <p className="fieldError">{errors.email.message}</p>}
+      </div>
 
-      <label htmlFor="taxCode">Tax code</label>
+      <div className="field">
+      <label htmlFor="taxCode">Mã số thuế *</label>
       <input
         id="taxCode"
         inputMode="numeric"
         maxLength={13}
         aria-invalid={Boolean(errors.taxCode)}
         {...register("taxCode", {
-          required: "Tax code is required",
+          required: "Mã số thuế là bắt buộc",
           validate: (value) =>
             /^\d{10}$/.test(value.replace(/\s/g, "")) ||
-            "Tax code must contain exactly 10 digits",
+            "Mã số thuế phải gồm đúng 10 chữ số",
         })}
       />
       {errors.taxCode && <p className="fieldError">{errors.taxCode.message}</p>}
+      </div>
 
-      <label htmlFor="departmentId">Department</label>
+      <div className="field">
+      <label htmlFor="departmentId">Phòng ban *</label>
       <select
         id="departmentId"
         aria-invalid={Boolean(errors.departmentId)}
         {...register("departmentId", {
           setValueAs: (value: string) => (value ? Number(value) : null),
-          validate: (value) => value !== null || "Department is required",
+          validate: (value) => value !== null || "Phòng ban là bắt buộc",
         })}
       >
         <option value="" disabled>
-          Select a department
+          Chọn phòng ban
         </option>
         {departments.map((department) => (
           <option key={department.id} value={department.id}>
@@ -178,12 +198,47 @@ export default function EmployeeForm({
       {errors.departmentId && (
         <p className="fieldError">{errors.departmentId.message}</p>
       )}
+      </div>
 
-      {error && <p className="error">{error}</p>}
+      <div className="field">
+        <label htmlFor="baseSalary">Lương cơ bản *</label>
+        <input
+          id="baseSalary"
+          type="number"
+          min="0"
+          step="100000"
+          {...register("baseSalary", {
+            valueAsNumber: true,
+            required: "Lương cơ bản là bắt buộc",
+            min: { value: 0, message: "Lương không được là số âm" },
+          })}
+        />
+        {errors.baseSalary && <p className="fieldError">{errors.baseSalary.message}</p>}
+      </div>
 
-      <button className="button primary" type="submit" disabled={isSubmitting}>
-        {isSubmitting ? "Saving..." : submitLabel}
-      </button>
+      <div className="field">
+        <label htmlFor="LeaveDays">Số ngày phép *</label>
+        <input
+          id="LeaveDays"
+          type="number"
+          min="0"
+          step="1"
+          {...register("LeaveDays", {
+            valueAsNumber: true,
+            required: "Số ngày phép là bắt buộc",
+            min: { value: 0, message: "Số ngày phép không được âm" },
+          })}
+        />
+        {errors.LeaveDays && <p className="fieldError">{errors.LeaveDays.message}</p>}
+      </div>
+
+      {error && <p className="error fullField">{error}</p>}
+
+      <div className="formActions fullField">
+        <button className="button primary" type="submit" title={submitLabel} disabled={isSubmitting}>
+          {isSubmitting ? "Đang lưu..." : submitLabel}
+        </button>
+      </div>
     </form>
   );
 }
