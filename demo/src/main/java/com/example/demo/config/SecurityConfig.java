@@ -52,6 +52,9 @@ public class SecurityConfig {
         @Value("${jwt.secret}")
         private String jwtSecret;
 
+        @Value("${app.cors.allowed-origin-patterns:http://localhost:[*],http://127.0.0.1:[*],https://*.vercel.app}")
+        private List<String> corsAllowedOriginPatterns;
+
         @Bean
         public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         // Login được mở công khai; mọi API còn lại phải mang JWT hợp lệ.
@@ -119,11 +122,9 @@ public class SecurityConfig {
         CorsConfiguration configuration =
                 new CorsConfiguration();
 
-        configuration.setAllowedOrigins(
-                List.of("http://localhost:3000",
-                        "https://demo-psi-lemon-19.vercel.app"
-                )
-        );
+        // Pattern cho phép mọi cổng local và các Vercel preview mà không cần đổi code
+        // mỗi lần frontend được deploy. Có thể ghi đè bằng CORS_ALLOWED_ORIGIN_PATTERNS.
+        configuration.setAllowedOriginPatterns(corsAllowedOriginPatterns);
 
         configuration.setAllowedMethods(
                 List.of(
@@ -141,6 +142,9 @@ public class SecurityConfig {
         );
 
         configuration.setAllowCredentials(true);
+
+        configuration.setExposedHeaders(List.of("Authorization"));
+        configuration.setMaxAge(3600L);
 
         UrlBasedCorsConfigurationSource source =
                 new UrlBasedCorsConfigurationSource();
