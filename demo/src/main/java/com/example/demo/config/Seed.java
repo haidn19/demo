@@ -1,147 +1,152 @@
 package com.example.demo.config;
 
-import com.example.demo.entity.Attendance;
-import com.example.demo.entity.AttendancePunch;
-import com.example.demo.entity.Employee;
-import com.example.demo.repository.AttendancePunchRepository;
-import com.example.demo.repository.AttendanceRepository;
-import com.example.demo.repository.EmployeeRepository;
-import com.example.demo.service.AttendanceService;
-import java.time.LocalDate;
-import java.time.LocalDateTime;
-import java.time.LocalTime;
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.sql.Connection;
+import java.sql.SQLException;
+import java.sql.Statement;
+import java.util.LinkedHashSet;
+import java.util.List;
+import java.util.Map;
 import java.util.Set;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+import javax.sql.DataSource;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
+/**
+ * Restores the complete data set from {@code seed-data.sql} when the application
+ * is started with {@code --seed=true}.
+ *
+ * <p>The source is a MySQL command-line dump, so only its data INSERT statements
+ * are sent through JDBC. Session commands, table locks, and dump metadata are not
+ * valid or needed in this application.</p>
+ */
 @Configuration
 @ConditionalOnProperty(name = "seed", havingValue = "true")
 public class Seed {
 
-    private final AttendancePunchRepository punchRepository;
+    private static final Pattern INSERT_STATEMENT = Pattern.compile(
+            "(?is)INSERT\\s+INTO\\s+`([^`]+)`\\s+VALUES\\s+.*?;");
 
-    public Seed(AttendancePunchRepository punchRepository) {
-        this.punchRepository = punchRepository;
-    }
+    private static final List<String> TABLES_TO_CLEAR = List.of(
+            "attendance_punch", "payroll", "leaves", "attendance", "employees", "department", "users");
 
-    private static final LocalTime STANDARD_CHECK_IN = LocalTime.of(8, 30);
-    private static final LocalTime STANDARD_CHECK_OUT = LocalTime.of(17, 30);
+    private static final Set<String> EXPECTED_TABLES = Set.of(
+            "attendance", "attendance_punch", "department", "employees", "leaves", "payroll", "users");
+
+    /*
+     * The dump was exported without column names. Declare its original column
+     * order explicitly so it stays compatible when Hibernate changes the
+     * physical order in which columns were added to a table.
+     */
+    private static final Map<String, String> INSERT_COLUMNS = Map.of(
+            "attendance", "`id`, `check_in`, `check_out`, `work_date`, `employee_id`, "
+                    + "`afternoon_minutes`, `balance_minutes`, `early_leave_minutes`, `early_minutes`, "
+                    + "`extra_minutes`, `late_minutes`, `morning_work_lost`, `status`, "
+                    + "`afternoon_work_lost`, `late_penalty_minutes`, `morning_minutes`, "
+                    + "`overtime_minutes`, `effective_out`, `late_multiplier`, `working_minutes`, "
+                    + "`overtime_multiplier`",
+            "attendance_punch", "`id`, `employee_id`, `punched_at`",
+            "department", "`id`, `name`, `leader_id`",
+            "employees", "`id`, `employee_name`, `address`, `date_of_birth`, `department`, `email`, "
+                    + "`phone_number`, `tax_code`, `department_id`, `base_salary`, `leave_days`",
+            "leaves", "`id`, `employee_id`, `employee_name`, `end_date`, `leave_days`, `reason`, "
+                    + "`start_date`, `status`, `unpaid_leave_days`",
+            "payroll", "`id`, `base_salary`, `gross_salary`, `payroll_month`, `net_salary`, "
+                    + "`employee_id`, `overtime_minutes`, `leave_days_used`, `deduction_required`, "
+                    + "`monthly_balance_minutes`",
+            "users", "`id`, `username`, `password`, `role`, `status`");
 
     @Bean
-    CommandLineRunner seedAttendance(
-            AttendanceRepository attendanceRepository,
-            EmployeeRepository employeeRepository
-    ) {
-        return args -> {
-            // Dữ liệu mẫu luôn được tạo lại từ đầu để raw punch khớp với bảng attendance.
-            punchRepository.deleteAllInBatch();
-            attendanceRepository.deleteAllInBatch();
-
-            Employee employeeA = employee(employeeRepository, "Nguyễn Văn A");
-            Employee employeeB = employee(employeeRepository, "Nguyễn Văn B");
-            Employee employeeC = employee(employeeRepository, "Nguyễn Văn C");
-            Employee employeeD = employee(employeeRepository, "Nguyễn Văn D");
-
-            LocalDate today = LocalDate.now();
-            seedDefaultWorkdays(attendanceRepository, employeeA.getId(), today, Set.of(today.getDayOfMonth()));
-            seedDefaultWorkdays(attendanceRepository, employeeB.getId(), today, Set.of(3, 8, 11, 14));
-            seedDefaultWorkdays(attendanceRepository, employeeC.getId(), today, Set.of(4, 7, 8));
-            seedDefaultWorkdays(attendanceRepository, employeeD.getId(), today, Set.of(3, 4, 7, 9, 12));
-
-            seedEmployeeA(attendanceRepository, employeeA.getId(), today);
-
-            saveStandard(attendanceRepository, employeeB.getId(), today.withDayOfMonth(3), LocalTime.of(9, 20));
-            saveStandard(attendanceRepository, employeeB.getId(), today.withDayOfMonth(8), LocalTime.of(9, 0));
-            saveStandard(attendanceRepository, employeeB.getId(), today.withDayOfMonth(11), LocalTime.of(9, 40));
-            saveStandard(attendanceRepository, employeeB.getId(), today.withDayOfMonth(14), LocalTime.of(8, 0));
-
-            saveStandard(attendanceRepository, employeeC.getId(), today.withDayOfMonth(4), LocalTime.of(9, 32));
-            saveStandard(attendanceRepository, employeeC.getId(), today.withDayOfMonth(7), LocalTime.of(9, 0));
-            saveOvertime(attendanceRepository, employeeC.getId(), today.withDayOfMonth(8),
-                    LocalTime.of(9, 40), LocalTime.of(23, 0));
-
-            saveStandard(attendanceRepository, employeeD.getId(), today.withDayOfMonth(3), LocalTime.of(8, 0));
-            saveStandard(attendanceRepository, employeeD.getId(), today.withDayOfMonth(4), LocalTime.of(8, 15));
-            saveStandard(attendanceRepository, employeeD.getId(), today.withDayOfMonth(7), LocalTime.of(8, 45));
-            saveStandard(attendanceRepository, employeeD.getId(), today.withDayOfMonth(9), LocalTime.of(9, 29));
-            saveOvertime(attendanceRepository, employeeD.getId(), today.withDayOfMonth(12),
-                    LocalTime.of(8, 30), LocalTime.of(17, 30));
-        };
+    CommandLineRunner restoreSeedData(DataSource dataSource) {
+        return args -> restore(dataSource, readDump());
     }
 
-    private Employee employee(EmployeeRepository repository, String name) {
-        return repository.findAll().stream()
-                .filter(item -> name.equals(item.getEmployeeName()))
-                .findFirst()
-                .orElseGet(() -> repository.save(new Employee(name)));
-    }
+    private void restore(DataSource dataSource, String dump) throws SQLException {
+        try (Connection connection = dataSource.getConnection()) {
+            boolean originalAutoCommit = connection.getAutoCommit();
+            try {
+                connection.setAutoCommit(false);
+                try (Statement statement = connection.createStatement()) {
+                    statement.execute("SET NAMES utf8mb4");
+                    statement.execute("SET FOREIGN_KEY_CHECKS = 0");
 
-    private void seedEmployeeA(AttendanceRepository repository, Long employeeId, LocalDate today) {
-        saveWorking(repository, employeeId, today, STANDARD_CHECK_IN);
-    }
-
-    private void seedDefaultWorkdays(
-            AttendanceRepository repository,
-            Long employeeId,
-            LocalDate today,
-            Set<Integer> exceptionDays
-    ) {
-        LocalDate date = today.withDayOfMonth(1);
-        while (!date.isAfter(today)) {
-            if (date.getDayOfWeek().getValue() <= 5 && !exceptionDays.contains(date.getDayOfMonth())) {
-                saveStandard(repository, employeeId, date, STANDARD_CHECK_IN);
+                    clearTables(statement);
+                    restoreInsertStatements(statement, dump);
+                    connection.commit();
+                }
+            } catch (SQLException | RuntimeException exception) {
+                rollback(connection, exception);
+                throw exception;
+            } finally {
+                enableForeignKeyChecks(connection);
+                connection.setAutoCommit(originalAutoCommit);
             }
-            date = date.plusDays(1);
         }
     }
 
-    private void saveStandard(
-            AttendanceRepository repository,
-            Long employeeId,
-            LocalDate date,
-            LocalTime checkIn
-    ) {
-        saveAttendance(repository, employeeId, date, checkIn, STANDARD_CHECK_OUT);
-    }
-
-    private void saveWorking(
-            AttendanceRepository repository,
-            Long employeeId,
-            LocalDate date,
-            LocalTime checkIn
-    ) {
-        saveAttendance(repository, employeeId, date, checkIn, null);
-    }
-
-    private void saveOvertime(
-            AttendanceRepository repository,
-            Long employeeId,
-            LocalDate date,
-            LocalTime checkIn,
-            LocalTime checkOut
-    ) {
-        saveAttendance(repository, employeeId, date, checkIn, checkOut);
-    }
-
-    private void saveAttendance(
-            AttendanceRepository repository,
-            Long employeeId,
-            LocalDate date,
-            LocalTime checkIn,
-            LocalTime checkOut
-    ) {
-        Attendance attendance = new Attendance();
-        attendance.setEmployeeId(employeeId);
-        attendance.setWorkDate(date);
-        attendance.setCheckIn(LocalDateTime.of(date, checkIn));
-        attendance.setCheckOut(checkOut == null ? null : LocalDateTime.of(date, checkOut));
-        punchRepository.save(new AttendancePunch(employeeId, attendance.getCheckIn()));
-        if (attendance.getCheckOut() != null) {
-            punchRepository.save(new AttendancePunch(employeeId, attendance.getCheckOut()));
+    private void clearTables(Statement statement) throws SQLException {
+        for (String table : TABLES_TO_CLEAR) {
+            statement.executeUpdate("DELETE FROM `" + table + "`");
         }
-        AttendanceService.calculate(attendance, Set.of(), false);
-        repository.save(attendance);
+    }
+
+    private void restoreInsertStatements(Statement statement, String dump) throws SQLException {
+        Matcher matcher = INSERT_STATEMENT.matcher(dump);
+        Set<String> restoredTables = new LinkedHashSet<>();
+
+        while (matcher.find()) {
+            String table = matcher.group(1);
+            if (!EXPECTED_TABLES.contains(table)) {
+                throw new IllegalStateException("Unexpected table in seed-data.sql: " + table);
+            }
+            if (!restoredTables.add(table)) {
+                throw new IllegalStateException("Duplicate INSERT block in seed-data.sql for table: " + table);
+            }
+            statement.executeUpdate(withColumnNames(table, matcher.group()));
+        }
+
+        if (!restoredTables.equals(EXPECTED_TABLES)) {
+            Set<String> missingTables = new LinkedHashSet<>(EXPECTED_TABLES);
+            missingTables.removeAll(restoredTables);
+            throw new IllegalStateException("seed-data.sql is incomplete; missing data for: " + missingTables);
+        }
+    }
+
+    private String withColumnNames(String table, String insertStatement) {
+        String prefix = "INSERT INTO `" + table + "` VALUES";
+        return insertStatement.replace(prefix, "INSERT INTO `" + table + "` ("
+                + INSERT_COLUMNS.get(table) + ") VALUES");
+    }
+
+    private void rollback(Connection connection, Exception originalException) {
+        try {
+            connection.rollback();
+        } catch (SQLException rollbackException) {
+            originalException.addSuppressed(rollbackException);
+        }
+    }
+
+    private void enableForeignKeyChecks(Connection connection) throws SQLException {
+        try (Statement statement = connection.createStatement()) {
+            statement.execute("SET FOREIGN_KEY_CHECKS = 1");
+        }
+    }
+
+    private String readDump() throws IOException {
+        for (Path path : List.of(Path.of("seed-data.sql"), Path.of("demo", "seed-data.sql"))) {
+            if (Files.isRegularFile(path)) {
+                return Files.readString(path, StandardCharsets.UTF_8);
+            }
+        }
+
+        throw new IllegalStateException(
+                "Cannot find seed-data.sql. Run the application from demo or the repository root.");
     }
 }

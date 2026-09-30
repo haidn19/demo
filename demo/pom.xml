@@ -88,12 +88,45 @@
 		</dependency>
 	</dependencies>
 
+
 	<build>
 		<plugins>
+
+			<!-- Tạo executable Spring Boot JAR -->
 			<plugin>
 				<groupId>org.springframework.boot</groupId>
 				<artifactId>spring-boot-maven-plugin</artifactId>
 			</plugin>
+
+			<!-- Xóa file *.jar.original sau khi Spring Boot repackage -->
+			<plugin>
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-antrun-plugin</artifactId>
+				<version>3.1.0</version>
+
+				<executions>
+					<execution>
+						<id>remove-original-jar</id>
+						<phase>package</phase>
+
+						<goals>
+		
+						<goal>run</goal>
+						</goals>
+
+						<configuration>
+							<target>
+								<delete>
+									<fileset
+										dir="${project.build.directory}"
+										includes="*.jar.original"/>
+								</delete>
+							</target>
+						</configuration>
+					</execution>
+				</executions>
+			</plugin>
+
 		</plugins>
 	</build>
 
