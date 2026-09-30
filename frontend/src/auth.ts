@@ -49,7 +49,18 @@ export const authOptions: NextAuthOptions = {
           },
         );
 
-        if (!response.ok) return null;
+        if (!response.ok) {
+          const errorText = await response.text();
+
+          console.error("API request failed:", {
+            url: response.url,
+            status: response.status,
+            statusText: response.statusText,
+            body: errorText,
+          });
+
+          return null;
+        }
 
         // Đọc JSON bất đồng bộ rồi lấy JWT do backend trả về.
         const result = (await response.json()) as { token?: string };
